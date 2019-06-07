@@ -1,78 +1,133 @@
-import numpy as np
+#!/usr/bin/env python
+# coding: utf-8
 
-import sqlalchemy
+# In[13]:
+
+
+# Dependecies
+import pandas as pd
+from flask import Flask, flash, redirect, render_template, request, session, jsonify, Markup, abort
+
+
+# In[2]:
+
+
+# Read the file
+superstore = "Superstore.xls"
+superstore_df = pd.read_excel(superstore)
+
+
+# In[3]:
+
+
+superstore_df.head(2)
+
+
+# In[4]:
+
+
+Superstore = superstore_df[["City", "State", "Code", "Latitude", "Longitude", "Category", "Sales", "Profit"]]
+Superstore
+
+
+# In[5]:
+
+
+# SQLAlchemy dependencies 
+
+# To create engine & declarative base 
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
+# For data types
+from sqlalchemy import Column, Integer, String, Float, Date
 
-from flask import Flask, jsonify
+# Create base
+Base = declarative_base()
 
 
-#################################################
-# Database Setup
-#################################################
-engine = create_engine("sqlite:///titanic.sqlite")
+# In[6]:
 
-# reflect an existing database into a new model
+
+Base.metadata.clear()
+# Creates Classes which will serve as the anchor points for our Tables
+class Orders(Base):
+    __table_args__ = {'extend_existing': True}
+    __tablename__ = 'Orders'
+    index = Column(String, primary_key=True)
+    City = Column(String(255),nullable=True)
+    State = Column(String(255),nullable=True)
+    Code = Column(String(255),nullable=True)
+    Latitude = Column(Float,nullable=True)
+    Longitude = Column(Float,nullable=True)
+    Category = Column(String(255),nullable=True)
+    Sales = Column(Float,nullable=True)
+    Profit = Column(Float,nullable=True)
+    
+
+
+# In[7]:
+
+
+# Create a sqlite engine
+engine = create_engine("sqlite:///superstore.sqlite")
+
+
+# In[8]:
+
+
+# Add metadata to tables
+Base.metadata.drop_all(engine)
+Base.metadata.create_all(engine)
+
+
+# In[9]:
+
+
+# Data from Excel to respective tables
+Superstore.to_sql('Orders',engine, if_exists='append',index=True)
+
+
+# In[11]:
+
+
 Base = automap_base()
+
 # reflect the tables
 Base.prepare(engine, reflect=True)
 
-# Save reference to the table
-Passenger = Base.classes.passenger
-
 # Create our session (link) from Python to the DB
 session = Session(engine)
+results = session.query(Orders.index, Orders.City, Orders.State, Orders.Code, Orders.Latitude, Orders.Longitude, 
+                        Orders.Category, Orders.Sales, Orders.Profit).all()
 
-#################################################
-# Flask Setup
-#################################################
+
+# In[16]:
+
+
+mydata=jsonify(results)
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+  #dat=jsonText
+  #return "Hello"
+  return render_template("index.html",dat=mydata)
 
-#################################################
-# Flask Routes
-#################################################
-
-@app.route("/")
-def welcome():
-    """List all available api routes."""
-    return (
-        f"Available Routes:<br/>"
-        f"/api/v1.0/names<br/>"
-        f"/api/v1.0/passengers"
-    )
+if __name__ == "__main__":
+  app.run(debug=True)
 
 
-@app.route("/api/v1.0/names")
-def names():
-    """Return a list of all passenger names"""
-    # Query all passengers
-    results = session.query(Passenger.name).all()
-
-    # Convert list of tuples into normal list
-    all_names = list(np.ravel(results))
-
-    return jsonify(all_names)
+# In[ ]:
 
 
-@app.route("/api/v1.0/passengers")
-def passengers():
-    """Return a list of passenger data including the name, age, and sex of each passenger"""
-    # Query all passengers
-    results = session.query(Passenger.name, Passenger.age, Passenger.sex).all()
-
-    # Create a dictionary from the row data and append to a list of all_passengers
-    all_passengers = []
-    for name, age, sex in results:
-        passenger_dict = {}
-        passenger_dict["name"] = name
-        passenger_dict["age"] = age
-        passenger_dict["sex"] = sex
-        all_passengers.append(passenger_dict)
-
-    return jsonify(all_passengers)
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+# In[ ]:
+
+
+
+
